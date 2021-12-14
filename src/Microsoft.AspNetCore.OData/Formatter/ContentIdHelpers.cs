@@ -56,7 +56,7 @@ namespace Microsoft.AspNetCore.OData.Formatter
             return url;
         }
 
-        private static bool IsContentIdCharacter(char c)
+        public static bool IsContentIdCharacter(char c)
         {
             // According to the OData ABNF grammar, Content-IDs follow the scheme.
             // content-id = "Content-ID" ":" OWS 1*unreserved

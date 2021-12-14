@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.OData.Abstracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using Microsoft.OData;
+using Microsoft.AspNetCore.OData.Formatter;
 
 namespace Microsoft.AspNetCore.OData.Batch
 {
@@ -134,7 +135,24 @@ namespace Microsoft.AspNetCore.OData.Batch
             HttpRequest request = context.Request;
 
             request.Method = batchRequest.Method;
-            request.CopyAbsoluteUrl(batchRequest.Url);
+            if (batchRequest.Url.IsAbsoluteUri)
+                request.CopyAbsoluteUrl(batchRequest.Url);
+            else
+            {
+                string url = batchRequest.Url.OriginalString;
+                if (url.IndexOf('$', 0) == 0)
+                {
+                    int keyLength = 0;
+
+                    while (keyLength < url.Length - 1 && ContentIdHelpers.IsContentIdCharacter(url[keyLength + 1]))
+                    {
+                        keyLength++;
+                    }
+                    request.Scheme = "";
+                    request.Host = new HostString(url.Substring(0, keyLength + 1));
+                    request.Path = new PathString(url.Substring(keyLength + 1));
+                }
+            }
 
             // Not using bufferContentStream. Unlike AspNet, AspNetCore cannot guarantee the disposal
             // of the stream in the context of execution so there is no choice but to copy the stream
