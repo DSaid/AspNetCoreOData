@@ -34,8 +34,12 @@ namespace Microsoft.AspNetCore.OData.Query
 
         public static ODataQuerySettings UpdateQuerySettings(this ODataQueryContext context, ODataQuerySettings querySettings, IQueryable query)
         {
-            ODataQuerySettings updatedSettings =
-                context?.RequestContainer?.GetRequiredService<ODataQuerySettings>() ?? new ODataQuerySettings();
+            ODataQuerySettings updatedSettings = new ODataQuerySettings();
+            ODataQuerySettings settings = context?.RequestContainer?.GetRequiredService<ODataQuerySettings>();
+            if (settings != null)
+            {
+                updatedSettings.CopyFrom(settings);
+            }
 
             updatedSettings.CopyFrom(querySettings);
 
@@ -68,6 +72,23 @@ namespace Microsoft.AspNetCore.OData.Query
 
             IFilterBinder binder = context.RequestContainer?.GetService<IFilterBinder>();
             return binder ?? new FilterBinder();
+        }
+
+        /// <summary>
+        /// Gets the <see cref="ISearchBinder"/>.
+        /// </summary>
+        /// <param name="context">The query context.</param>
+        /// <returns>The built <see cref="ISearchBinder"/>.</returns>
+        public static ISearchBinder GetSearchBinder(this ODataQueryContext context)
+        {
+            if (context == null)
+            {
+                throw Error.ArgumentNull(nameof(context));
+            }
+
+            // We don't provide the default implementation of ISearchBinder,
+            // Actually, how to match is dependent upon the implementation.
+            return context.RequestContainer?.GetService<ISearchBinder>();
         }
 
         /// <summary>

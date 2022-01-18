@@ -45,7 +45,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Validator
                     { AllowedQueryOptions.Skip, "$skip=5", "Skip" },
                     { AllowedQueryOptions.Top, "$top=10", "Top" },
                     { AllowedQueryOptions.Apply, "$apply=groupby((Name))", "Apply" },
-                    { AllowedQueryOptions.Compute, "$compute=Price mul Qty as Total", "Apply" },
+                    { AllowedQueryOptions.Compute, "$compute=AmountSpent mul 2 as DoubleAmount", "Compute" },
+                    { AllowedQueryOptions.Search, "$search=text", "Search" },
                     { AllowedQueryOptions.SkipToken, "$skiptoken=__skip__", "SkipToken" },
                 };
             }

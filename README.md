@@ -1,19 +1,26 @@
-ASP.NET Core (.NET 5) OData
-============= 
+# ASP.NET Core OData 8.x
+---
+
 Component | Build  | Status 
 --------|--------- |---------
-ASP.NET Core OData|Rolling | [![Build status](https://identitydivision.visualstudio.com/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-master-rolling)](https://identitydivision.visualstudio.com/OData/_build/latest?definitionId=1132) 
-ASP.NET Core OData|Nightly | [![Build status](https://identitydivision.visualstudio.com/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-master-nightly)](https://identitydivision.visualstudio.com/OData/_build/latest?definitionId=1169) 
-.NET Foundation|Release|[![Build status](https://dev.azure.com/dotnet/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-master-Yaml-release?branchName=master)](https://dev.azure.com/dotnet/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-master-Yaml-release?branchName=master)
-
-
+ASP.NET Core OData|Rolling | [![Build status](https://identitydivision.visualstudio.com/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-main-rolling)](https://identitydivision.visualstudio.com/OData/_build/latest?definitionId=1132)
+ASP.NET Core OData|Nightly | [![Build status](https://identitydivision.visualstudio.com/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-main-nightly)](https://identitydivision.visualstudio.com/OData/_build/latest?definitionId=1169)
+.NET Foundation|Release|[![Build status](https://dev.azure.com/dotnet/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-main-Yaml-release?branchName=main)](https://dev.azure.com/dotnet/OData/_apis/build/status/AspNetCoreOData/AspNetCoreOData-main-Yaml-release?branchName=main)
 
 ## 1. Introduction
+
+**Be noted**:  Switch to use "main" as default branch. 1/6/2022
 
 This is the official ASP.NET Core OData repository.
 [ASP.NET Core OData](https://www.nuget.org/packages/Microsoft.AspNetCore.OData/8.0.0) is a server side library built upon ODataLib and ASP.NET Core.
 
 **Blogs**:
+
+* [$compute and $search in ASP.NET Core OData 8](https://devblogs.microsoft.com/odata/compute-and-search-in-asp-net-core-odata-8/)
+
+* [API versioning extension with ASP.NET Core OData 8](https://devblogs.microsoft.com/odata/api-versioning-extension-with-asp-net-core-odata-8/)
+
+* [Build formatter extensions in ASP.NET Core OData 8 and hooks in ODataConnectedService](https://devblogs.microsoft.com/odata/build-formatter-extensions-in-asp-net-core-odata-8-and-hooks-in-odataconnectedservice/)
 
 * [Attribute Routing in ASP.NET Core OData 8.0 RC](https://devblogs.microsoft.com/odata/attribute-routing-in-asp-net-core-odata-8-0-rc/)
 
@@ -21,12 +28,8 @@ This is the official ASP.NET Core OData repository.
 
 * [ASP.NET Core OData 8.0 Preview for .NET 5](https://devblogs.microsoft.com/odata/asp-net-odata-8-0-preview-for-net-5/)
 
-* [API versioning extension with ASP.NET Core OData 8](https://devblogs.microsoft.com/odata/api-versioning-extension-with-asp-net-core-odata-8/)
-
-* [Build formatter extensions in ASP.NET Core OData 8 and hooks in ODataConnectedService](https://devblogs.microsoft.com/odata/build-formatter-extensions-in-asp-net-core-odata-8-and-hooks-in-odataconnectedservice/)
-
 **Example**:
-* [ODataRoutingSample](https://github.com/OData/AspNetCoreOData/tree/master/sample/ODataRoutingSample): ASP.NET Core OData sample project in this repo.
+* [ODataRoutingSample](https://github.com/OData/AspNetCoreOData/tree/main/sample/ODataRoutingSample): ASP.NET Core OData sample project in this repo.
   
    - **`~/$odata`** gives a static routing table page of the service
    
@@ -109,7 +112,7 @@ To connect to webapinightly feed, use this feed URL:
 
 ## 4. Documentation
 
-* [ODataRoutingSample](https://github.com/OData/AspNetCoreOData/tree/master/sample/ODataRoutingSample): ASP.NET Core OData sample project in this repo.
+* [ODataRoutingSample](https://github.com/OData/AspNetCoreOData/tree/main/sample/ODataRoutingSample): ASP.NET Core OData sample project in this repo.
 
 * [ASP.NET OData 8.0 Preview for .NET 5](https://devblogs.microsoft.com/odata/asp-net-odata-8-0-preview-for-net-5/): A blog introducing the project.
 
@@ -131,4 +134,4 @@ This project has adopted the [.NET Foundation Contributor Covenant Code of Condu
 
 This project is supported by the [.NET Foundation](https://dotnetfoundation.org).
 
-AspNetCoreOData is a Copyright of &copy; .NET Foundation and other contributors. It is licensed under [MIT License](https://github.com/OData/AspNetCoreOData/blob/master/License.txt)
+AspNetCoreOData is a Copyright of &copy; .NET Foundation and other contributors. It is licensed under [MIT License](https://github.com/OData/AspNetCoreOData/blob/main/License.txt)
