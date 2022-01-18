@@ -23,6 +23,16 @@ namespace Microsoft.AspNetCore.OData.Query
         public string Apply { get; internal set; }
 
         /// <summary>
+        ///  Gets the raw $compute query value from the incoming request Uri if exists.
+        /// </summary>
+        public string Compute { get; internal set; }
+
+        /// <summary>
+        ///  Gets the raw $search query value from the incoming request Uri if exists.
+        /// </summary>
+        public string Search { get; internal set; }
+
+        /// <summary>
         ///  Gets the raw $orderby query value from the incoming request Uri if exists.
         /// </summary>
         public string OrderBy { get; internal set; }

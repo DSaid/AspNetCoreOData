@@ -133,8 +133,6 @@ namespace Microsoft.AspNetCore.OData.Query
             ApplyClause applyClause = ApplyClause;
             Contract.Assert(applyClause != null);
 
-            ODataQuerySettings updatedSettings = Context.UpdateQuerySettings(querySettings, query);
-
             // The IWebApiAssembliesResolver service is internal and can only be injected by WebApi.
             // This code path may be used in cases when the service container is not available
             // and the service container is available but may not contain an instance of IWebApiAssembliesResolver.
@@ -152,21 +150,24 @@ namespace Microsoft.AspNetCore.OData.Query
             {
                 if (transformation.Kind == TransformationNodeKind.Aggregate || transformation.Kind == TransformationNodeKind.GroupBy)
                 {
-                    var binder = new AggregationBinder(updatedSettings, assembliesResolver, ResultClrType, Context.Model, transformation);
+                    var binder = new AggregationBinder(querySettings, assembliesResolver, ResultClrType, Context.Model, transformation);
                     query = binder.Bind(query);
                     this.ResultClrType = binder.ResultClrType;
                 }
                 else if (transformation.Kind == TransformationNodeKind.Compute)
                 {
-                    var binder = new ComputeBinder(updatedSettings, assembliesResolver, ResultClrType, Context.Model, (ComputeTransformationNode)transformation);
+                    var binder = new ComputeBinder(querySettings, assembliesResolver, ResultClrType, Context.Model, (ComputeTransformationNode)transformation);
                     query = binder.Bind(query);
                     this.ResultClrType = binder.ResultClrType;
                 }
                 else if (transformation.Kind == TransformationNodeKind.Filter)
                 {
                     var filterTransformation = transformation as FilterTransformationNode;
-                    Expression filter = FilterBinder.Bind(query, filterTransformation.FilterClause, ResultClrType, Context, querySettings);
-                    query = ExpressionHelpers.Where(query, filter, ResultClrType);
+
+                    IFilterBinder binder = Context.GetFilterBinder();
+                    QueryBinderContext binderContext = new QueryBinderContext(Context.Model, querySettings, ResultClrType);
+
+                    query = binder.ApplyBind(query, filterTransformation.FilterClause, binderContext);
                 }
             }
 

@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Linq.Expressions;
 using Microsoft.AspNetCore.OData.Query.Expressions;
 using Microsoft.AspNetCore.OData.Query.Validator;
 using Microsoft.OData.Edm;
@@ -90,6 +89,11 @@ namespace Microsoft.AspNetCore.OData.Query
         public FilterQueryValidator Validator { get; set; }
 
         /// <summary>
+        /// Gets or sets the <see cref="ComputeQueryOption"/>.
+        /// </summary>
+        public ComputeQueryOption Compute { get; set; }
+
+        /// <summary>
         /// Gets the parsed <see cref="FilterClause"/> for this query option.
         /// </summary>
         public FilterClause FilterClause
@@ -134,6 +138,7 @@ namespace Microsoft.AspNetCore.OData.Query
             {
                 throw Error.ArgumentNull("querySettings");
             }
+
             if (Context.ElementClrType == null)
             {
                 throw Error.NotSupported(SRResources.ApplyToOnUntypedQueryOption, "ApplyTo");
@@ -142,11 +147,15 @@ namespace Microsoft.AspNetCore.OData.Query
             FilterClause filterClause = FilterClause;
             Contract.Assert(filterClause != null);
 
-            ODataQuerySettings updatedSettings = Context.UpdateQuerySettings(querySettings, query);
+            QueryBinderContext binderContext = new QueryBinderContext(Context.Model, querySettings, Context.ElementClrType);
 
-            Expression filter = FilterBinder.Bind(query, filterClause, Context.ElementClrType, Context, updatedSettings);
-            query = ExpressionHelpers.Where(query, filter, Context.ElementClrType);
-            return query;
+            if (Compute != null)
+            {
+                binderContext.AddComputedProperties(Compute.ComputeClause.ComputedItems);
+            }
+
+            IFilterBinder binder = Context.GetFilterBinder();
+            return binder.ApplyBind(query, filterClause, binderContext);
         }
 
         /// <summary>

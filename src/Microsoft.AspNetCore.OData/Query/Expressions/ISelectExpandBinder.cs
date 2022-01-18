@@ -5,7 +5,6 @@
 // </copyright>
 //------------------------------------------------------------------------------
 
-using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.OData.UriParser;
 
@@ -13,26 +12,18 @@ namespace Microsoft.AspNetCore.OData.Query.Expressions
 {
     /// <summary>
     /// Exposes the ability to translate an OData $select or $expand parse tree represented by <see cref="SelectExpandClause"/> to
-    /// an <see cref="Expression"/> and applies it to an <see cref="IQueryable"/> or an <see cref="object"/>.
+    /// an <see cref="Expression"/>.
     /// </summary>
     public interface ISelectExpandBinder
     {
         /// <summary>
-        /// Translate an OData $select or $expand parse tree represented by <see cref="SelectExpandClause"/> to
-        /// an <see cref="Expression"/> and applies it to an <see cref="IQueryable"/>.
+        /// Translate an OData $select or $expand tree represented by <see cref="SelectExpandClause"/> to an <see cref="Expression"/>.
+        /// $select=Name&amp;$expand=Orders
+        /// $it => new { .... }
         /// </summary>
-        /// <param name="source">The original <see cref="IQueryable"/>.</param>
-        /// <param name="context">An instance of the <see cref="SelectExpandBinderContext"/>.</param>
-        /// <returns>The new <see cref="IQueryable"/> after the select/expand query has been applied.</returns>
-        IQueryable Bind(IQueryable source, SelectExpandBinderContext context);
-
-        /// <summary>
-        /// Translate an OData $select or $expand parse tree represented by <see cref="SelectExpandClause"/> to
-        /// an <see cref="Expression"/> and applies it to an <see cref="object"/>.
-        /// </summary>
-        /// <param name="source">The original <see cref="object"/>.</param>
-        /// <param name="context">An instance of the <see cref="SelectExpandBinderContext"/>.</param>
-        /// <returns>The new <see cref="object"/> after the select/expand query has been applied.</returns>
-        object Bind(object source, SelectExpandBinderContext context);
+        /// <param name="selectExpandClause">The original <see cref="SelectExpandClause"/>.</param>
+        /// <param name="context">An instance of the <see cref="QueryBinderContext"/>.</param>
+        /// <returns>The $select and $expand binder result.</returns>
+        Expression BindSelectExpand(SelectExpandClause selectExpandClause, QueryBinderContext context);
     }
 }

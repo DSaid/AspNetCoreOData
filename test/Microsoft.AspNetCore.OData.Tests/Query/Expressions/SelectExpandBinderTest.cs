@@ -35,7 +35,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
         private readonly IQueryable<QueryCustomer> _queryable;
         private readonly ODataQueryContext _context;
         private readonly ODataQuerySettings _settings;
-        private readonly SelectExpandBinderContext _selectExpandBinderContext;
+        private readonly QueryBinderContext _queryBinderContext;
 
         private readonly IEdmModel _model;
         private readonly IEdmEntityType _customer;
@@ -53,7 +53,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
 
             _settings = new ODataQuerySettings { HandleNullPropagation = HandleNullPropagationOption.False };
             _context = new ODataQueryContext(_model, typeof(QueryCustomer)) { RequestContainer = new MockServiceProvider() };
-            _binder = new SelectExpandBinder();
+            _binder = new SelectExpandBinder(new FilterBinder(), new OrderByBinder());
 
             QueryCustomer customer = new QueryCustomer
             {
@@ -65,10 +65,10 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             _queryable = new[] { customer }.AsQueryable();
 
             SelectExpandQueryOption selectExpandQueryOption = new SelectExpandQueryOption("Orders", expand: null, context: _context);
-            _selectExpandBinderContext = new SelectExpandBinderContext()
+
+            _queryBinderContext = new QueryBinderContext(_model, _settings, selectExpandQueryOption.Context.ElementClrType)
             {
-                SelectExpand = selectExpandQueryOption,
-                QuerySettings = _settings
+                NavigationSource = _context.NavigationSource
             };
         }
 
@@ -78,7 +78,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
 
             var context = new ODataQueryContext(model, typeof(T)) { RequestContainer = new MockServiceProvider() };
 
-            return new SelectExpandBinder();
+            return new SelectExpandBinder(new FilterBinder(), new OrderByBinder());
         }
 
         //[Fact]
@@ -98,14 +98,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             SelectExpandQueryOption selectExpand = new SelectExpandQueryOption(select: select, expand: null, context: _context);
 
             // Act
-            SelectExpandBinderContext selectExpandBinderContext = new SelectExpandBinderContext()
-            {
-                SelectExpand = selectExpand,
-                QuerySettings = _settings
-            };
-
             SelectExpandBinder binder = new SelectExpandBinder();
-            IQueryable queryable = binder.Bind(_queryable, selectExpandBinderContext);
+            IQueryable queryable = binder.ApplyBind(_queryable, selectExpand.SelectExpandClause, _queryBinderContext);
 
             // Assert
             Assert.NotNull(queryable);
@@ -122,14 +116,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             SelectExpandQueryOption selectExpand = new SelectExpandQueryOption("Orders", "Orders,Orders($expand=Customer)", _context);
 
             // Act
-            SelectExpandBinderContext selectExpandBinderContext = new SelectExpandBinderContext()
-            {
-                SelectExpand = selectExpand,
-                QuerySettings = _settings
-            };
-
             SelectExpandBinder binder = new SelectExpandBinder();
-            IQueryable queryable = binder.Bind(_queryable, selectExpandBinderContext);
+            IQueryable queryable = binder.ApplyBind(_queryable, selectExpand.SelectExpandClause, _queryBinderContext);
 
             // Assert
             IEnumerator enumerator = queryable.GetEnumerator();
@@ -155,14 +143,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             SelectExpandQueryOption selectExpand = new SelectExpandQueryOption(null, "Orders($expand=Customer($select=City))", _context);
 
             // Act
-            SelectExpandBinderContext selectExpandBinderContext = new SelectExpandBinderContext()
-            {
-                SelectExpand = selectExpand,
-                QuerySettings = _settings
-            };
-
             SelectExpandBinder binder = new SelectExpandBinder();
-            IQueryable queryable = binder.Bind(_queryable, selectExpandBinderContext);
+            IQueryable queryable = binder.ApplyBind(_queryable, selectExpand.SelectExpandClause, _queryBinderContext);
 
             // Assert
             var unaryExpression = (UnaryExpression)((MethodCallExpression)queryable.Expression).Arguments.Single(a => a is UnaryExpression);
@@ -179,7 +161,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(order);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             SelectExpandWrapper<QueryOrder> projectedOrder = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryOrder>;
@@ -200,7 +182,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(null, typeof(QueryOrder));
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             SelectExpandWrapper<QueryOrder> projectedOrder = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryOrder>;
@@ -226,7 +208,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(null, typeof(QueryOrder));
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             var e = ExceptionAssert.Throws<TargetInvocationException>(() => Expression.Lambda(projection).Compile().DynamicInvoke());
@@ -242,7 +224,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(orders);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             IEnumerable<SelectExpandWrapper<QueryOrder>> projectedOrders = Expression.Lambda(projection).Compile().DynamicInvoke() as IEnumerable<SelectExpandWrapper<QueryOrder>>;
@@ -264,7 +246,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             _settings.PageSize = pageSize;
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             IEnumerable<SelectExpandWrapper<QueryOrder>> projectedOrders = Expression.Lambda(projection).Compile().DynamicInvoke() as IEnumerable<SelectExpandWrapper<QueryOrder>>;
@@ -287,7 +269,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(order);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             SelectExpandWrapper<QueryOrder> projectedOrder = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryOrder>;
@@ -309,7 +291,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(order);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             SelectExpandWrapper<QueryOrder> projectedOrder = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryOrder>;
@@ -331,7 +313,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(null, typeof(QueryOrder[]));
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             IEnumerable<SelectExpandWrapper<QueryOrder>> projectedOrders = Expression.Lambda(projection).Compile().DynamicInvoke() as IEnumerable<SelectExpandWrapper<QueryOrder>>;
@@ -349,7 +331,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(null, typeof(QueryOrder[]));
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _order, _orders);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _order, _orders);
 
             // Assert
             var e = ExceptionAssert.Throws<TargetInvocationException>(() => Expression.Lambda(projection).Compile().DynamicInvoke());
@@ -365,7 +347,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Expression source = Expression.Constant(aCustomer);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpand, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpand, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -400,7 +382,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             Assert.Equal(ExpressionType.Call, projection.NodeType);
@@ -447,7 +429,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             Assert.Equal(ExpressionType.Call, projection.NodeType);
@@ -481,7 +463,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             Assert.Equal(ExpressionType.MemberInit, projection.NodeType);
@@ -506,7 +488,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             Assert.Equal(ExpressionType.MemberInit, projection.NodeType);
@@ -534,7 +516,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -560,7 +542,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -587,7 +569,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -625,7 +607,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -660,7 +642,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -698,7 +680,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -741,7 +723,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -776,7 +758,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -806,7 +788,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             Assert.Equal(ExpressionType.MemberInit, projection.NodeType);
@@ -839,7 +821,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             Assert.Equal(ExpressionType.MemberInit, projection.NodeType);
@@ -904,7 +886,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             var customerWrappers = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -934,7 +916,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             Assert.Equal(ExpressionType.MemberInit, projection.NodeType);
@@ -973,7 +955,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(selectExpandClause);
 
             // Act
-            Expression projection = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, selectExpandClause, _customer, _customers);
+            Expression projection = _binder.ProjectAsWrapper(_queryBinderContext, source, selectExpandClause, _customer, _customers);
 
             // Assert
             SelectExpandWrapper<QueryCustomer> customerWrapper = Expression.Lambda(projection).Compile().DynamicInvoke() as SelectExpandWrapper<QueryCustomer>;
@@ -1015,7 +997,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem> propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude,
                 out propertiesToExpand,
                 out autoSelectedProperties);
@@ -1025,7 +1007,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             SelectItem selectItem = selectExpandClause.SelectedItems.First();
             PathSelectItem pathSelectItem = Assert.IsType<PathSelectItem>(selectItem); // Guard
 
-            Assert.False(isContainDynamicProperty);
+            Assert.Empty(dynamicPathSegments);
             Assert.Null(propertiesToExpand); // No navigation property to expand
 
             Assert.NotNull(autoSelectedProperties); // auto select the keys
@@ -1061,13 +1043,13 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem> propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude,
                 out propertiesToExpand,
                 out autoSelectedProperties);
 
             // Assert
-            Assert.False(isContainDynamicProperty);
+            Assert.Empty(dynamicPathSegments);
             Assert.Null(propertiesToExpand);
 
             Assert.NotNull(autoSelectedProperties);
@@ -1096,13 +1078,13 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem> propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude,
                 out propertiesToExpand,
                 out autoSelectedProperties);
 
             // Assert
-            Assert.False(isContainDynamicProperty);
+            Assert.Empty(dynamicPathSegments);
             Assert.Null(propertiesToExpand); // No navigation property to expand
 
             Assert.NotNull(autoSelectedProperties); // auto select the keys & ETags
@@ -1143,7 +1125,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem > propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude, out propertiesToExpand, out autoSelectedProperties);
 
             // Assert
@@ -1160,7 +1142,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(autoSelectedProperties);
 
             Assert.False(selectExpandClause.AllSelected); // guard
-            Assert.Equal(expect, isContainDynamicProperty);
+            Assert.Equal(expect, dynamicPathSegments.Any());
         }
 
         [Theory]
@@ -1178,13 +1160,13 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem> propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude,
                 out propertiesToExpand,
                 out autoSelectedProperties);
 
             // Assert
-            Assert.False(isContainDynamicProperty);
+            Assert.Empty(dynamicPathSegments);
             Assert.Null(propertiesToInclude);
             Assert.Null(propertiesToExpand);
 
@@ -1212,7 +1194,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem> propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude,
                 out propertiesToExpand,
                 out autoSelectedProperties);
@@ -1223,7 +1205,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(expandedItem);
             var navigationSegment = expandedItem.PathToNavigationProperty.First(p => p is NavigationPropertySegment) as NavigationPropertySegment;
 
-            Assert.False(isContainDynamicProperty); // not container dynamic properties selection
+            Assert.Empty(dynamicPathSegments); // not container dynamic properties selection
             Assert.Null(propertiesToInclude); // no structural properties to include
             Assert.Null(autoSelectedProperties); // no auto select properties
 
@@ -1267,7 +1249,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem> propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude,
                 out propertiesToExpand,
                 out autoSelectedProperties);
@@ -1308,13 +1290,13 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             IDictionary<IEdmStructuralProperty, PathSelectItem> propertiesToInclude;
             IDictionary<IEdmNavigationProperty, ExpandedReferenceSelectItem> propertiesToExpand;
             ISet<IEdmStructuralProperty> autoSelectedProperties;
-            bool isContainDynamicProperty = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
+            IList<DynamicPathSegment> dynamicPathSegments = SelectExpandBinder.GetSelectExpandProperties(_model, _customer, _customers, selectExpandClause,
                 out propertiesToInclude,
                 out propertiesToExpand,
                 out autoSelectedProperties);
 
             // Arrange
-            Assert.False(isContainDynamicProperty);
+            Assert.Empty(dynamicPathSegments);
 
             Assert.NotNull(selectExpandClause);
             Assert.False(selectExpandClause.AllSelected);
@@ -1357,25 +1339,25 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
 
             // Act & Assert
             // #1. Base property on base type
-            Expression property = SelectExpandBinder.CreatePropertyNameExpression(_selectExpandBinderContext, _customer, baseProperty, source);
+            Expression property = binder.CreatePropertyNameExpression(_queryBinderContext, _customer, baseProperty, source);
             Assert.Equal(ExpressionType.Constant, property.NodeType);
             Assert.Equal(typeof(string), property.Type);
             Assert.Equal("PrivateOrder", (property as ConstantExpression).Value);
 
             // #2. Base property on derived type
-            property = SelectExpandBinder.CreatePropertyNameExpression(_selectExpandBinderContext, vipCustomer, baseProperty, source);
+            property = binder.CreatePropertyNameExpression(_queryBinderContext, vipCustomer, baseProperty, source);
             Assert.Equal(ExpressionType.Constant, property.NodeType);
             Assert.Equal(typeof(string), property.Type);
             Assert.Equal("PrivateOrder", (property as ConstantExpression).Value);
 
             // #3. Derived property on base type
-            property = SelectExpandBinder.CreatePropertyNameExpression(_selectExpandBinderContext, _customer, derivedProperty, source);
+            property = binder.CreatePropertyNameExpression(_queryBinderContext, _customer, derivedProperty, source);
             Assert.Equal(ExpressionType.Conditional, property.NodeType);
             Assert.Equal(typeof(string), property.Type);
             Assert.Equal("IIF((aCustomer Is QueryVipCustomer), \"Birthday\", null)", property.ToString());
 
             // #4. Derived property on derived type.
-            property = SelectExpandBinder.CreatePropertyNameExpression(_selectExpandBinderContext, vipCustomer, derivedProperty, source);
+            property = binder.CreatePropertyNameExpression(_queryBinderContext, vipCustomer, derivedProperty, source);
             Assert.Equal(ExpressionType.Constant, property.NodeType);
             Assert.Equal(typeof(string), property.Type);
             Assert.Equal("Birthday", (property as ConstantExpression).Value);
@@ -1392,9 +1374,10 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(edmProperty);
 
             Expression source = Expression.Parameter(typeof(QueryCustomer), "aCustomer");
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             // Act
-            Expression property = SelectExpandBinder.CreatePropertyNameExpression(_selectExpandBinderContext, _customer, edmProperty, source);
+            Expression property = binder.CreatePropertyNameExpression(_queryBinderContext, _customer, edmProperty, source);
 
             // Assert
             Assert.Equal(ExpressionType.Constant, property.NodeType);
@@ -1417,7 +1400,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             SelectExpandBinder binder = GetBinder<QueryCustomer>(model);
 
             // Act & Assert
-            ExceptionAssert.Throws<ODataException>(() => SelectExpandBinder.CreatePropertyNameExpression(_selectExpandBinderContext, _customer, subNameProperty, source),
+            ExceptionAssert.Throws<ODataException>(() => binder.CreatePropertyNameExpression(_queryBinderContext, _customer, subNameProperty, source),
                 "The provided mapping does not contain a resource for the resource type 'NS.SubCustomer'.");
         }
         #endregion
@@ -1430,12 +1413,13 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
         {
             // Arrange
             Expression source = Expression.Constant(new QueryCustomer());
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             IEdmNavigationProperty navProperty = _customer.NavigationProperties().Single(c => c.Name == property);
             Assert.NotNull(navProperty);
 
             // Act
-            Expression propertyValue = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, navProperty, source, null);
+            Expression propertyValue = binder.CreatePropertyValueExpression(_queryBinderContext, _customer, navProperty, source, null);
 
             // Assert
             Assert.Equal(ExpressionType.MemberAccess, propertyValue.NodeType);
@@ -1450,6 +1434,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
         {
             // Arrange
             Expression source = Expression.Constant(new QueryCustomer());
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             IEdmStructuredType vipCustomer = _model.SchemaElements.OfType<IEdmEntityType>().First(c => c.Name == "QueryVipCustomer");
             Assert.NotNull(vipCustomer);
@@ -1458,7 +1443,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(specialProperty);
 
             // Act
-            Expression propertyValue = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, specialProperty, source, null);
+            Expression propertyValue = binder.CreatePropertyValueExpression(_queryBinderContext, _customer, specialProperty, source, null);
 
             // Assert
             Assert.Equal(String.Format("({0} As QueryVipCustomer).{1}", source.ToString(), property), propertyValue.ToString());
@@ -1472,6 +1457,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
         {
             // Arrange
             Expression source = Expression.Constant(new QueryCustomer());
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             IEdmStructuredType vipCustomer = _model.SchemaElements.OfType<IEdmEntityType>().First(c => c.Name == "QueryVipCustomer");
             Assert.NotNull(vipCustomer);
@@ -1480,7 +1466,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(vipCustomer);
 
             // Act
-            Expression propertyValue = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, edmProperty, source, null);
+            Expression propertyValue = binder.CreatePropertyValueExpression(_queryBinderContext, _customer, edmProperty, source, null);
 
             // Assert
             Assert.Equal(String.Format("Convert(({0} As QueryVipCustomer).{1}, Nullable`1)", source.ToString(), property), propertyValue.ToString());
@@ -1494,6 +1480,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
         {
             // Arrange
             Expression source = Expression.Constant(new QueryCustomer());
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             IEdmStructuredType vipCustomer = _model.SchemaElements.OfType<IEdmEntityType>().First(c => c.Name == "QueryVipCustomer");
             Assert.NotNull(vipCustomer);
@@ -1502,7 +1489,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(vipCustomer);
 
             // Act
-            Expression propertyValue = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, edmProperty, source, null);
+            Expression propertyValue = binder.CreatePropertyValueExpression(_queryBinderContext, _customer, edmProperty, source, null);
 
             // Assert
             Assert.Equal(String.Format("({0} As QueryVipCustomer).{1}", source.ToString(), property), propertyValue.ToString());
@@ -1514,10 +1501,11 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             // Arrange
             _settings.HandleNullPropagation = HandleNullPropagationOption.True;
             Expression source = Expression.Constant(new QueryCustomer());
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
             IEdmProperty idProperty = _customer.StructuralProperties().Single(p => p.Name == "Id");
 
             // Act
-            Expression property = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, idProperty, source, null);
+            Expression property = binder.CreatePropertyValueExpression(_queryBinderContext, _customer, idProperty, source, null);
 
             // Assert
             // NetFx and NetCore differ in the way Expression is converted to a string.
@@ -1551,10 +1539,11 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             // Arrange
             _settings.HandleNullPropagation = HandleNullPropagationOption.False;
             Expression source = Expression.Constant(new QueryCustomer());
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
             IEdmProperty idProperty = _customer.StructuralProperties().Single(p => p.Name == "Id");
 
             // Act
-            Expression property = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, idProperty, source, filterClause: null);
+            Expression property = binder.CreatePropertyValueExpression(_queryBinderContext, _customer, idProperty, source, filterClause: null);
 
             // Assert
             Assert.Equal(String.Format("Convert({0}.Id, Nullable`1)", source.ToString()), property.ToString());
@@ -1578,6 +1567,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
                 }
             });
 
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
+
             var ordersProperty = _customer.NavigationProperties().Single(p => p.Name == "Orders");
 
             SelectExpandClause selectExpand = ParseSelectExpand(null, "Orders($filter=Id eq 1)", _model, _customer, _customers);
@@ -1587,7 +1578,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
 
             // Act & Assert
             ExceptionAssert.Throws<ODataException>(
-                () => SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, ordersProperty, source, expandItem.FilterOption),
+                () => binder.CreatePropertyValueExpression(_queryBinderContext, _customer, ordersProperty, source, expandItem.FilterOption),
                 String.Format("The provided mapping does not contain a resource for the resource type '{0}'.",
                 ordersProperty.Type.Definition.AsElementType().FullTypeName()));
         }
@@ -1608,6 +1599,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
                 }
             });
 
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
+
             var ordersProperty = _customer.NavigationProperties().Single(p => p.Name == "Orders");
 
             SelectExpandClause selectExpand = ParseSelectExpand(null, "Orders($filter=Id eq 1)", _model, _customer, _customers);
@@ -1616,7 +1609,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(expandItem.FilterOption);
 
             // Act
-            var filterInExpand = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _customer, ordersProperty, source, expandItem.FilterOption);
+            var filterInExpand = binder.CreatePropertyValueExpression(_queryBinderContext, _customer, ordersProperty, source, expandItem.FilterOption);
 
             // Assert
             if (nullOption == HandleNullPropagationOption.True)
@@ -1682,6 +1675,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
                         }
                     }
             );
+
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
             var customerProperty = _order.NavigationProperties().Single(p => p.Name == "Customer");
 
             SelectExpandClause selectExpand = ParseSelectExpand(null, "Customer($filter=Id ne 1)", _model, _order, _orders);
@@ -1691,7 +1686,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(expandItem.FilterOption);
 
             // Act 
-            var filterInExpand = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _order, customerProperty, order, expandItem.FilterOption);
+            var filterInExpand = binder.CreatePropertyValueExpression(_queryBinderContext, _order, customerProperty, order, expandItem.FilterOption);
 
             // Assert
             var customer = Expression.Lambda(filterInExpand).Compile().DynamicInvoke() as QueryCustomer;
@@ -1716,6 +1711,8 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
                         }
                     }
             );
+
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
             var customerProperty = _order.NavigationProperties().Single(p => p.Name == "Customer");
 
             SelectExpandClause selectExpand = ParseSelectExpand(null, "Customer($filter=Id ne 1)", _model, _order, _orders);
@@ -1725,7 +1722,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             Assert.NotNull(expandItem.FilterOption);
 
             // Act
-            var filterInExpand = SelectExpandBinder.CreatePropertyValueExpression(_selectExpandBinderContext, _order, customerProperty, source, expandItem.FilterOption);
+            var filterInExpand = binder.CreatePropertyValueExpression(_queryBinderContext, _order, customerProperty, source, expandItem.FilterOption);
 
             // Assert
             if (nullOption == HandleNullPropagationOption.True)
@@ -1762,9 +1759,10 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             model.AddElement(baseType);
 
             Expression source = Expression.Constant(42);
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             // Act
-            Expression result = SelectExpandBinder.CreateTypeNameExpression(source, baseType, model);
+            Expression result = binder.CreateTypeNameExpression(source, baseType, model);
 
             // Assert
             Assert.Null(result);
@@ -1781,10 +1779,11 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             model.AddElement(derivedType);
 
             Expression source = Expression.Constant(42);
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             // Act & Assert
             ExceptionAssert.Throws<ODataException>(
-                () => SelectExpandBinder.CreateTypeNameExpression(source, baseType, model),
+                () => binder.CreateTypeNameExpression(source, baseType, model),
                 "The provided mapping does not contain a resource for the resource type 'NS.DerivedType'.");
         }
 
@@ -1807,9 +1806,10 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             }
 
             Expression source = Expression.Constant(42);
+            SelectExpandBinder binder = GetBinder<QueryCustomer>(_model);
 
             // Act
-            Expression result = SelectExpandBinder.CreateTypeNameExpression(source, baseType, model);
+            Expression result = binder.CreateTypeNameExpression(source, baseType, model);
 
             // Assert
             Assert.Equal(
@@ -1836,7 +1836,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             var expandClause = ParseSelectExpand(null, "Orders", _model, _customer, _customers);
 
             // Act
-            var expand = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, expandClause, _customer, _customers);
+            var expand = _binder.ProjectAsWrapper(_queryBinderContext, source, expandClause, _customer, _customers);
 
             // Assert
             Assert.True(expand.ToString().Contains("ToList") == enableOptimization);
@@ -1862,7 +1862,7 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
             var expandClause = ParseSelectExpand(null, "Orders", _model, _customer, _customers);
 
             // Act
-            var expand = _binder.ProjectAsWrapper(_selectExpandBinderContext, source, expandClause, _customer, _customers);
+            var expand = _binder.ProjectAsWrapper(_queryBinderContext, source, expandClause, _customer, _customers);
 
             // Assert
             Assert.True(expand.ToString().Contains("ToList") == enableOptimization);
@@ -1888,6 +1888,15 @@ namespace Microsoft.AspNetCore.OData.Tests.Query.Expressions
                     { "$expand", expand == null ? "" : expand },
                     { "$select", select == null ? "" : select }
                 }).ParseSelectAndExpand();
+        }
+
+        public static IDictionary<string, object> InvokeSelectExpand<T>(T instance, Expression selectExpandExp)
+        {
+            LambdaExpression projectionLambda = selectExpandExp as LambdaExpression;
+
+            SelectExpandWrapper wrapper = projectionLambda.Compile().DynamicInvoke(instance) as SelectExpandWrapper;
+
+            return wrapper.ToDictionary();
         }
     }
 

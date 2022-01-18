@@ -34,6 +34,14 @@ namespace Microsoft.AspNetCore.OData.Query.Validator
             }
 
             // Validate each query options
+            if (options.Compute != null)
+            {
+                if (options.Compute.ComputeClause != null)
+                {
+                    ValidateQueryOptionAllowed(AllowedQueryOptions.Compute, validationSettings.AllowedQueryOptions);
+                }
+            }
+
             if (options.Apply != null)
             {
                 if (options.Apply.ApplyClause != null)
@@ -64,6 +72,11 @@ namespace Microsoft.AspNetCore.OData.Query.Validator
             {
                 ValidateQueryOptionAllowed(AllowedQueryOptions.Filter, validationSettings.AllowedQueryOptions);
                 options.Filter.Validate(validationSettings);
+            }
+
+            if (options.Search != null)
+            {
+                ValidateQueryOptionAllowed(AllowedQueryOptions.Search, validationSettings.AllowedQueryOptions);
             }
 
             if (options.Count != null || options.Request.IsCountRequest())
