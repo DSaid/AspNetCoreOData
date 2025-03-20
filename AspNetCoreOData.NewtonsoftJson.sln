@@ -9,6 +9,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.AspNetCore.OData.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.AspNetCore.OData", "src\Microsoft.AspNetCore.OData\Microsoft.AspNetCore.OData.csproj", "{65F17B4F-A5E0-44CD-9C3D-5DC926C49D8E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.OData.Core", "..\ODataNet_fork\src\Microsoft.OData.Core\Microsoft.OData.Core.csproj", "{358329C8-CFE6-CB59-C3D3-1C4F0FB88337}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.OData.Edm", "..\ODataNet_fork\src\Microsoft.OData.Edm\Microsoft.OData.Edm.csproj", "{832A4130-F2B9-120B-A9E4-7F46F151FBFA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Spatial", "..\ODataNet_fork\src\Microsoft.Spatial\Microsoft.Spatial.csproj", "{4A04D996-AC3E-BB87-6245-0AD8D994FC37}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +49,24 @@ Global
 		{65F17B4F-A5E0-44CD-9C3D-5DC926C49D8E}.Release|x64.Build.0 = Release|x64
 		{65F17B4F-A5E0-44CD-9C3D-5DC926C49D8E}.Release|x86.ActiveCfg = Release|x86
 		{65F17B4F-A5E0-44CD-9C3D-5DC926C49D8E}.Release|x86.Build.0 = Release|x86
+		{358329C8-CFE6-CB59-C3D3-1C4F0FB88337}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{358329C8-CFE6-CB59-C3D3-1C4F0FB88337}.Debug|x64.ActiveCfg = Debug|x64
+		{358329C8-CFE6-CB59-C3D3-1C4F0FB88337}.Debug|x86.ActiveCfg = Debug|x86
+		{358329C8-CFE6-CB59-C3D3-1C4F0FB88337}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{358329C8-CFE6-CB59-C3D3-1C4F0FB88337}.Release|x64.ActiveCfg = Release|x64
+		{358329C8-CFE6-CB59-C3D3-1C4F0FB88337}.Release|x86.ActiveCfg = Release|x86
+		{832A4130-F2B9-120B-A9E4-7F46F151FBFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{832A4130-F2B9-120B-A9E4-7F46F151FBFA}.Debug|x64.ActiveCfg = Debug|x64
+		{832A4130-F2B9-120B-A9E4-7F46F151FBFA}.Debug|x86.ActiveCfg = Debug|x86
+		{832A4130-F2B9-120B-A9E4-7F46F151FBFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{832A4130-F2B9-120B-A9E4-7F46F151FBFA}.Release|x64.ActiveCfg = Release|x64
+		{832A4130-F2B9-120B-A9E4-7F46F151FBFA}.Release|x86.ActiveCfg = Release|x86
+		{4A04D996-AC3E-BB87-6245-0AD8D994FC37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A04D996-AC3E-BB87-6245-0AD8D994FC37}.Debug|x64.ActiveCfg = Debug|x64
+		{4A04D996-AC3E-BB87-6245-0AD8D994FC37}.Debug|x86.ActiveCfg = Debug|x86
+		{4A04D996-AC3E-BB87-6245-0AD8D994FC37}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A04D996-AC3E-BB87-6245-0AD8D994FC37}.Release|x64.ActiveCfg = Release|x64
+		{4A04D996-AC3E-BB87-6245-0AD8D994FC37}.Release|x86.ActiveCfg = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,6 +74,9 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{3044C3A0-9B45-47E6-B947-826E93828640} = {7CF7AD39-D87E-4A17-B456-153F9EB8A096}
 		{65F17B4F-A5E0-44CD-9C3D-5DC926C49D8E} = {7CF7AD39-D87E-4A17-B456-153F9EB8A096}
+		{358329C8-CFE6-CB59-C3D3-1C4F0FB88337} = {7CF7AD39-D87E-4A17-B456-153F9EB8A096}
+		{832A4130-F2B9-120B-A9E4-7F46F151FBFA} = {7CF7AD39-D87E-4A17-B456-153F9EB8A096}
+		{4A04D996-AC3E-BB87-6245-0AD8D994FC37} = {7CF7AD39-D87E-4A17-B456-153F9EB8A096}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {03416544-8E51-4754-8E5D-2E7F0F39E678}
