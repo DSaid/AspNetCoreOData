@@ -14,87 +14,152 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.OData.Formatter;
 
-namespace Microsoft.AspNetCore.OData.Batch
+namespace Microsoft.AspNetCore.OData.Batch;
+
+/// <summary>
+/// Represents an OData batch request.
+/// </summary>
+public abstract class ODataBatchRequestItem
 {
     /// <summary>
-    /// Represents an OData batch request.
+    /// Routes a single OData batch request.
     /// </summary>
-    public abstract class ODataBatchRequestItem
+    /// <param name="handler">The handler for processing a message.</param>
+    /// <param name="context">The http context.</param>
+    /// <param name="contentIdToLocationMapping">The Content-ID to Location mapping.</param>
+    /// <returns></returns>
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "<Pending>")]
+    public static async Task SendRequestAsync(RequestDelegate handler, HttpContext context, IDictionary<string, string> contentIdToLocationMapping)
     {
-        /// <summary>
-        /// Routes a single OData batch request.
-        /// </summary>
-        /// <param name="handler">The handler for processing a message.</param>
-        /// <param name="context">The http context.</param>
-        /// <param name="contentIdToLocationMapping">The Content-ID to Location mapping.</param>
-        /// <returns></returns>
-        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "<Pending>")]
-        public static async Task SendRequestAsync(RequestDelegate handler, HttpContext context, Dictionary<string, string> contentIdToLocationMapping)
+        if (handler == null)
         {
-            if (handler == null)
+            throw new ArgumentNullException(nameof(handler));
+        }
+
+        if (context == null)
+        {
+            throw new ArgumentNullException(nameof(context));
+        }
+
+        if (contentIdToLocationMapping != null)
+        {
+            string encodedUrl = context.Request.GetEncodedUrl();
+            string resolvedRequestUrl = ContentIdHelpers.ResolveContentId(encodedUrl, contentIdToLocationMapping);
+            Uri resolvedUri;
+            if (!string.IsNullOrEmpty(resolvedRequestUrl)
+                && Uri.TryCreate(resolvedRequestUrl, UriKind.Absolute, out resolvedUri))
             {
-                throw new ArgumentNullException(nameof(handler));
+                context.Request.CopyAbsoluteUrl(resolvedUri);
             }
 
-            if (context == null)
-            {
-                throw new ArgumentNullException(nameof(context));
-            }
+            context.Request.SetODataContentIdMapping(contentIdToLocationMapping);
 
-            if (contentIdToLocationMapping != null)
+            using (System.IO.Stream stream = context.Request.Body)
             {
-                string encodedUrl = context.Request.GetEncodedUrl();
-                string resolvedRequestUrl = ContentIdHelpers.ResolveContentId(encodedUrl, contentIdToLocationMapping);
-                Uri resolvedUri;
-                if (!string.IsNullOrEmpty(resolvedRequestUrl)
-                    && Uri.TryCreate(resolvedRequestUrl, UriKind.Absolute, out resolvedUri))
+                if (context.Request.Body.Length > 0)
                 {
-                    context.Request.CopyAbsoluteUrl(resolvedUri);
+                    System.IO.StreamReader sreader = new System.IO.StreamReader(stream);
+                    string body = sreader.ReadToEnd();
+                    sreader.Dispose();
+
+                    string resolvedBody = ResolveBody(body, contentIdToLocationMapping);
+                    System.IO.MemoryStream resolvedStream = new System.IO.MemoryStream();
+                    System.IO.StreamWriter swriter = new System.IO.StreamWriter(resolvedStream, null, -1, true);
+                    swriter.Write(resolvedBody);
+                    swriter.Flush();
+                    resolvedStream.Position = 0;
+                    context.Request.Body = resolvedStream;
+                    context.Request.Headers.ContentLength = resolvedStream.Length;
+                    swriter.Dispose();
                 }
-
-                context.Request.SetODataContentIdMapping(contentIdToLocationMapping);
-            }
-
-            try
-            {
-                await handler(context).ConfigureAwait(false);
-
-                string contentId = context.Request.GetODataContentId();
-
-                if (contentIdToLocationMapping != null && contentId != null)
-                {
-                    AddLocationHeaderToMapping(context.Response, contentIdToLocationMapping, contentId);
-                }
-            }
-            catch (Exception)
-            {
-                // Unlike AspNet, the exception handling is (by default) upstream of this middleware
-                // so we need to trap exceptions on our own. This code is similar to the
-                // ExceptionHandlerMiddleware class in AspNetCore.
-                context.Response.Clear();
-                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             }
         }
 
-        /// <summary>
-        /// Routes the request.
-        /// </summary>
-        /// <param name="handler">The handler for processing a message.</param>
-        /// <returns>A <see cref="ODataBatchResponseItem"/>.</returns>
-        public abstract Task<ODataBatchResponseItem> SendRequestAsync(RequestDelegate handler);
-
-        private static void AddLocationHeaderToMapping(HttpResponse response, IDictionary<string, string> contentIdToLocationMapping, string contentId)
+        try
         {
-            Contract.Assert(response != null);
-            Contract.Assert(response.Headers != null);
-            Contract.Assert(contentIdToLocationMapping != null);
-            Contract.Assert(contentId != null);
+            await handler(context).ConfigureAwait(false);
 
-            var headers = response.GetTypedHeaders();
-            if (headers.Location != null)
+            string contentId = context.Request.GetODataContentId();
+
+            if (contentIdToLocationMapping != null && contentId != null)
             {
-                contentIdToLocationMapping.Add(contentId, headers.Location.AbsoluteUri);
+                AddLocationHeaderToMapping(context.Response, contentIdToLocationMapping, contentId);
             }
         }
+        catch (Exception)
+        {
+            // Unlike AspNet, the exception handling is (by default) upstream of this middleware
+            // so we need to trap exceptions on our own. This code is similar to the
+            // ExceptionHandlerMiddleware class in AspNetCore.
+            context.Response.Clear();
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        }
+    }
+
+    /// <summary>
+    /// Routes the request.
+    /// </summary>
+    /// <param name="handler">The handler for processing a message.</param>
+    /// <returns>A <see cref="ODataBatchResponseItem"/>.</returns>
+    public abstract Task<ODataBatchResponseItem> SendRequestAsync(RequestDelegate handler);
+
+    /// <summary>
+    /// Default dictionary that ODataBatchRequestItems should use when mapping ID references to URLs
+    /// </summary>
+    [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Collection needs to be provided externally.")]
+    public IDictionary<string, string> ContentIdToLocationMapping { get; set; }
+
+    private static void AddLocationHeaderToMapping(HttpResponse response, IDictionary<string, string> contentIdToLocationMapping, string contentId)
+    {
+        Contract.Assert(response != null);
+        Contract.Assert(response.Headers != null);
+        Contract.Assert(contentIdToLocationMapping != null);
+        Contract.Assert(contentId != null);
+
+        var headers = response.GetTypedHeaders();
+        if (headers.Location != null)
+        {
+            contentIdToLocationMapping.Add(contentId, headers.Location.AbsoluteUri);
+        }
+    }
+
+    private static string ResolveBody(string body, IDictionary<string, string> contentIdToLocationMapping)
+    {
+        Contract.Assert(body != null);
+        Contract.Assert(contentIdToLocationMapping != null);
+
+        int startIndex = 0;
+
+        while (true)
+        {
+            startIndex = body.IndexOf('$', startIndex);
+
+            if (startIndex == -1)
+            {
+                break;
+            }
+
+            int keyLength = 0;
+
+            while (startIndex + keyLength < body.Length - 1 && ContentIdHelpers.IsContentIdCharacter(body[startIndex + keyLength + 1]))
+            {
+                keyLength++;
+            }
+
+            if (keyLength > 0)
+            {
+                // Might have matched a $<content-id> alias.
+                string locationKey = body.Substring(startIndex + 1, keyLength);
+                string locationValue;
+
+                if (contentIdToLocationMapping.TryGetValue(locationKey, out locationValue))
+                {
+                    body = body.Substring(0, startIndex) + locationValue + body.Substring(startIndex + 1 + keyLength);
+                }
+            }
+            startIndex++;
+        }
+
+        return body;
     }
 }
