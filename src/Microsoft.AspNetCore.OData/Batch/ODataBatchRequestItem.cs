@@ -53,6 +53,26 @@ public abstract class ODataBatchRequestItem
             }
 
             context.Request.SetODataContentIdMapping(contentIdToLocationMapping);
+
+            using (System.IO.Stream stream = context.Request.Body)
+            {
+                if (context.Request.Body.Length > 0)
+                {
+                    System.IO.StreamReader sreader = new System.IO.StreamReader(stream);
+                    string body = sreader.ReadToEnd();
+                    sreader.Dispose();
+
+                    string resolvedBody = ResolveBody(body, contentIdToLocationMapping);
+                    System.IO.MemoryStream resolvedStream = new System.IO.MemoryStream();
+                    System.IO.StreamWriter swriter = new System.IO.StreamWriter(resolvedStream, null, -1, true);
+                    swriter.Write(resolvedBody);
+                    swriter.Flush();
+                    resolvedStream.Position = 0;
+                    context.Request.Body = resolvedStream;
+                    context.Request.Headers.ContentLength = resolvedStream.Length;
+                    swriter.Dispose();
+                }
+            }
         }
 
         try
@@ -101,5 +121,45 @@ public abstract class ODataBatchRequestItem
         {
             contentIdToLocationMapping.Add(contentId, headers.Location.AbsoluteUri);
         }
+    }
+
+    private static string ResolveBody(string body, IDictionary<string, string> contentIdToLocationMapping)
+    {
+        Contract.Assert(body != null);
+        Contract.Assert(contentIdToLocationMapping != null);
+
+        int startIndex = 0;
+
+        while (true)
+        {
+            startIndex = body.IndexOf('$', startIndex);
+
+            if (startIndex == -1)
+            {
+                break;
+            }
+
+            int keyLength = 0;
+
+            while (startIndex + keyLength < body.Length - 1 && ContentIdHelpers.IsContentIdCharacter(body[startIndex + keyLength + 1]))
+            {
+                keyLength++;
+            }
+
+            if (keyLength > 0)
+            {
+                // Might have matched a $<content-id> alias.
+                string locationKey = body.Substring(startIndex + 1, keyLength);
+                string locationValue;
+
+                if (contentIdToLocationMapping.TryGetValue(locationKey, out locationValue))
+                {
+                    body = body.Substring(0, startIndex) + locationValue + body.Substring(startIndex + 1 + keyLength);
+                }
+            }
+            startIndex++;
+        }
+
+        return body;
     }
 }
